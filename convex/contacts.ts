@@ -1,23 +1,14 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { requireUser, requireCircleMember } from "./helpers/auth";
 
 export const listForCircle = query({
   args: { circleId: v.id("circles") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return [];
-
-    const userId = identity.subject;
+    const caller = await requireUser(ctx);
 
     // Verify caller membership
-    const callerMember = await ctx.db
-      .query("circle_members")
-      .withIndex("by_circleId_userId", (q) =>
-        q.eq("circleId", args.circleId).eq("userId", userId as any)
-      )
-      .unique();
-
-    if (!callerMember || callerMember.status !== "active") return [];
+    await requireCircleMember(ctx, args.circleId, caller._id);
 
     // Get all active members
     const members = await ctx.db
@@ -40,7 +31,7 @@ export const listForCircle = query({
           )
           .unique();
 
-        // Fetch 14d trend snapshot (empty until Phase 4)
+        // 14d trend snapshot (empty until Phase 4)
         const trend = await ctx.db
           .query("member_trend_snapshot")
           .withIndex("by_circleId_userId_windowDays", (q) =>
@@ -52,7 +43,7 @@ export const listForCircle = query({
           ? Math.max(0, Math.floor((state.nextDueAt - now) / 1000))
           : undefined;
 
-        // Get user profile for extra fields
+        // User profile for display name
         const profile = await ctx.db
           .query("user_profiles")
           .withIndex("by_userId", (q) => q.eq("userId", m.userId))

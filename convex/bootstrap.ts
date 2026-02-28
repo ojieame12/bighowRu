@@ -1,23 +1,26 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { getAuthUserId, requireUser } from "./helpers/auth";
 
 /**
- * Get user's app state by userId.
- * Returns circles and active circle for the user.
+ * Get the current user's app state.
+ * Returns null if not authenticated.
+ * Returns { needsBootstrap: true } if no circles exist.
+ * Returns { activeCircleId, circles } if ready.
  */
 export const getMyState = query({
-  args: { userId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
-    if (!args.userId) return null;
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
 
     const memberships = await ctx.db
       .query("circle_members")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId!))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .filter((q) => q.eq(q.field("status"), "active"))
       .collect();
 
     if (memberships.length === 0) {
-      return { needsBootstrap: true, userId: args.userId, activeCircleId: null, circles: [] };
+      return { needsBootstrap: true, userId, activeCircleId: null, circles: [] };
     }
 
     const circles = await Promise.all(
@@ -32,7 +35,7 @@ export const getMyState = query({
 
     return {
       needsBootstrap: false,
-      userId: args.userId,
+      userId,
       activeCircleId: validCircles[0]?.id ?? null,
       circles: validCircles,
     };
@@ -41,34 +44,33 @@ export const getMyState = query({
 
 /**
  * Bootstrap a new user: create profile + default circle.
+ * Derives userId from auth context — no client-supplied userId.
  */
 export const initUser = mutation({
-  args: { userId: v.id("users") },
-  handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    if (!user) throw new Error("User not found");
-
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
     const now = Date.now();
 
     // Check if already bootstrapped
     const existing = await ctx.db
       .query("circle_members")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
       .first();
     if (existing) return { circleId: existing.circleId };
 
     // Create user profile
     await ctx.db.insert("user_profiles", {
-      userId: args.userId,
-      displayName: user.name ?? "New User",
+      userId: user._id,
+      displayName: (user as any).name ?? "New User",
       updatedAt: now,
     });
 
     // Create default circle
-    const displayName = user.name ?? "My";
+    const displayName = (user as any).name ?? "My";
     const circleId = await ctx.db.insert("circles", {
       name: `${displayName}'s Circle`,
-      ownerUserId: args.userId,
+      ownerUserId: user._id,
       defaultCheckinCadenceHours: 24,
       archived: false,
       createdAt: now,
@@ -76,7 +78,7 @@ export const initUser = mutation({
 
     await ctx.db.insert("circle_members", {
       circleId,
-      userId: args.userId,
+      userId: user._id,
       role: "owner",
       status: "active",
       reminderCadenceHours: 24,
@@ -85,7 +87,7 @@ export const initUser = mutation({
 
     await ctx.db.insert("member_state", {
       circleId,
-      userId: args.userId,
+      userId: user._id,
       status: "pending",
       needsCheckup: false,
       hasRecentSelfie: false,

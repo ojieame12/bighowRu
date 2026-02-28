@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, type ViewStyle } from 'react-native';
+import { View, TextInput, Text, StyleSheet, type ViewStyle, type TextInputProps } from 'react-native';
 import { useMood } from '@/constants/MoodContext';
 import { themeColors } from '@/constants/tokens';
 
@@ -12,7 +12,7 @@ type Props = {
   state?: InputState;
   errorMessage?: string;
   style?: ViewStyle;
-};
+} & Pick<TextInputProps, 'secureTextEntry' | 'keyboardType' | 'autoCapitalize'>;
 
 export function InputField({
   placeholder,
@@ -21,6 +21,9 @@ export function InputField({
   state = 'default',
   errorMessage,
   style,
+  secureTextEntry,
+  keyboardType,
+  autoCapitalize,
 }: Props) {
   const { themed } = useMood();
   const [focused, setFocused] = useState(state === 'focus');
@@ -51,6 +54,9 @@ export function InputField({
         value={value}
         onChangeText={onChangeText}
         editable={state !== 'disabled'}
+        secureTextEntry={secureTextEntry}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={[

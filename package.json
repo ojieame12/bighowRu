@@ -9,6 +9,8 @@
     "android": "expo start --android"
   },
   "dependencies": {
+    "@auth/core": "^0.37.2",
+    "@convex-dev/auth": "^0.0.91",
     "@expo/metro-runtime": "~4.0.0",
     "convex": "^1.32.0",
     "expo": "~52.0.0",

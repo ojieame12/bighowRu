@@ -1,15 +1,42 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { useFonts } from 'expo-font';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { ConvexReactClient } from 'convex/react';
+import { ConvexAuthProvider, useConvexAuth } from '@convex-dev/auth/react';
+import { useQuery, useMutation } from 'convex/react';
+import * as SecureStore from 'expo-secure-store';
 import { MoodProvider } from '@/constants/MoodContext';
+import { CircleProvider } from '@/constants/CircleContext';
+import { api } from '@/convex/_generated/api';
 
 // ── Convex client ──
 const convex = new ConvexReactClient(
   process.env.EXPO_PUBLIC_CONVEX_URL!,
   { unsavedChangesWarning: false }
 );
+
+// ── Platform-aware secure storage for auth tokens ──
+const secureStorage = {
+  getItem: (key: string) => {
+    if (Platform.OS === 'web') return localStorage.getItem(key);
+    return SecureStore.getItemAsync(key);
+  },
+  setItem: (key: string, value: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+      return;
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem: (key: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 // ── Web font injection ──
 function injectWebFonts() {
@@ -25,6 +52,72 @@ function injectWebFonts() {
     @font-face { font-family: 'Dotmax'; src: url('/assets/assets/Dotmax.ttf') format('truetype'); font-weight: 400; }
   `;
   document.head.appendChild(style);
+}
+
+// ── Auth-gated inner layout ──
+function AuthGate() {
+  const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
+  const router = useRouter();
+  const segments = useSegments();
+
+  const appState = useQuery(
+    api.bootstrap.getMyState,
+    isAuthenticated ? {} : 'skip'
+  );
+  const initUser = useMutation(api.bootstrap.initUser);
+
+  // Auto-bootstrap new users
+  useEffect(() => {
+    if (appState?.needsBootstrap) {
+      initUser();
+    }
+  }, [appState?.needsBootstrap, initUser]);
+
+  // Navigation guard
+  useEffect(() => {
+    if (authLoading) return;
+
+    const onLoginPage = segments[0] === 'login';
+
+    if (!isAuthenticated && !onLoginPage) {
+      router.replace('/login');
+    } else if (isAuthenticated && onLoginPage) {
+      router.replace('/home');
+    }
+  }, [isAuthenticated, authLoading, segments, router]);
+
+  if (authLoading) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#3D2117" />
+      </View>
+    );
+  }
+
+  // Not authenticated — show login stack
+  if (!isAuthenticated) {
+    return <Stack screenOptions={{ headerShown: false }} />;
+  }
+
+  // Waiting for bootstrap
+  if (!appState || appState.needsBootstrap) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" color="#3D2117" />
+      </View>
+    );
+  }
+
+  return (
+    <CircleProvider
+      activeCircleId={appState.activeCircleId ?? null}
+      userId={appState.userId ?? null}
+    >
+      <MoodProvider initialMood="neutral">
+        <Stack screenOptions={{ headerShown: false }} />
+      </MoodProvider>
+    </CircleProvider>
+  );
 }
 
 // ── Root layout ──
@@ -47,11 +140,9 @@ export default function RootLayout() {
   }
 
   return (
-    <ConvexProvider client={convex}>
-      <MoodProvider initialMood="neutral">
-        <Stack screenOptions={{ headerShown: false }} />
-      </MoodProvider>
-    </ConvexProvider>
+    <ConvexAuthProvider client={convex} storage={secureStorage}>
+      <AuthGate />
+    </ConvexAuthProvider>
   );
 }
 

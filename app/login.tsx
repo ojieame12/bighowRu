@@ -96,7 +96,7 @@ export default function LoginScreen() {
 
             <InputLabel text="Password" />
             <InputField
-              placeholder="••••••••"
+              placeholder="Password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -113,7 +113,11 @@ export default function LoginScreen() {
             </View>
 
             <ButtonGhost
-              label={flow === 'signIn' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+              label={
+                flow === 'signIn'
+                  ? "Don't have an account? Sign Up"
+                  : 'Already have an account? Sign In'
+              }
               onPress={() => {
                 setFlow(flow === 'signIn' ? 'signUp' : 'signIn');
                 setError('');

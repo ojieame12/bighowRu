@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 const phaseSelectionValidator = v.object({
@@ -22,14 +23,7 @@ const trendDirectionValidator = v.union(
 );
 
 export default defineSchema({
-  // ── Users (will be replaced by authTables when auth is wired) ──
-  users: defineTable({
-    name: v.optional(v.string()),
-    email: v.optional(v.string()),
-    image: v.optional(v.string()),
-    tokenIdentifier: v.optional(v.string()),
-  })
-    .index("by_token", ["tokenIdentifier"]),
+  ...authTables,
 
   // ── Extended user profiles ──
   user_profiles: defineTable({

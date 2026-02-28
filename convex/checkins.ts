@@ -1,6 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { requireCircleMember } from "./helpers/auth";
+import { requireUser, requireCircleMember } from "./helpers/auth";
 import {
   computeCheckinScore,
   checkinScoreToPositivity,
@@ -9,7 +9,6 @@ import {
 
 export const submit = mutation({
   args: {
-    userId: v.id("users"),
     circleId: v.id("circles"),
     phaseSelections: v.array(
       v.object({
@@ -21,19 +20,24 @@ export const submit = mutation({
     ),
     painScore: v.optional(v.number()),
     note: v.optional(v.string()),
-    source: v.optional(v.union(v.literal("dial"), v.literal("manual"), v.literal("import"))),
+    source: v.optional(
+      v.union(v.literal("dial"), v.literal("manual"), v.literal("import"))
+    ),
     idempotencyKey: v.string(),
   },
   handler: async (ctx, args) => {
-    // 1. Idempotency
+    const user = await requireUser(ctx);
+
+    // 1. Idempotency — scoped by userId to prevent cross-user collision
+    const scopedKey = `${user._id}:${args.circleId}:${args.idempotencyKey}`;
     const existing = await ctx.db
       .query("checkins")
-      .withIndex("by_idempotencyKey", (q) => q.eq("idempotencyKey", args.idempotencyKey))
+      .withIndex("by_idempotencyKey", (q) => q.eq("idempotencyKey", scopedKey))
       .unique();
     if (existing) return existing._id;
 
     // 2. Membership check
-    const member = await requireCircleMember(ctx, args.circleId, args.userId);
+    const member = await requireCircleMember(ctx, args.circleId, user._id);
 
     // 3. Server-side scoring
     const { score } = computeCheckinScore(
@@ -47,7 +51,7 @@ export const submit = mutation({
     // 4. Write check-in
     const checkinId = await ctx.db.insert("checkins", {
       circleId: args.circleId,
-      userId: args.userId,
+      userId: user._id,
       positivity,
       discreteMood,
       phaseSelections: args.phaseSelections,
@@ -55,7 +59,7 @@ export const submit = mutation({
       note: args.note,
       createdAt: now,
       source: args.source ?? "dial",
-      idempotencyKey: args.idempotencyKey,
+      idempotencyKey: scopedKey,
     });
 
     // 5. Update member_state
@@ -65,7 +69,7 @@ export const submit = mutation({
     const memberState = await ctx.db
       .query("member_state")
       .withIndex("by_circleId_userId", (q) =>
-        q.eq("circleId", args.circleId).eq("userId", args.userId)
+        q.eq("circleId", args.circleId).eq("userId", user._id)
       )
       .unique();
 
@@ -87,36 +91,60 @@ export const submit = mutation({
     } else {
       await ctx.db.insert("member_state", {
         circleId: args.circleId,
-        userId: args.userId,
+        userId: user._id,
         ...stateUpdate,
         hasRecentSelfie: false,
       });
     }
 
-    // 6. Upsert trend daily bucket
-    const dayKey = new Date(now).toISOString().split("T")[0];
+    // 6. Upsert trend daily bucket — use member timezone if available
+    const profile = await ctx.db
+      .query("user_profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+
+    const tz = profile?.timezone ?? "UTC";
+    let dayKey: string;
+    try {
+      dayKey = new Date(now).toLocaleDateString("en-CA", { timeZone: tz });
+    } catch {
+      dayKey = new Date(now).toISOString().split("T")[0];
+    }
+
     const trendDaily = await ctx.db
       .query("member_trend_daily")
       .withIndex("by_circleId_userId_dayKey", (q) =>
-        q.eq("circleId", args.circleId).eq("userId", args.userId).eq("dayKey", dayKey)
+        q
+          .eq("circleId", args.circleId)
+          .eq("userId", user._id)
+          .eq("dayKey", dayKey)
       )
       .unique();
 
     if (trendDaily) {
       const newCount = trendDaily.sampleCount + 1;
-      const newAvg = (trendDaily.moodAvg * trendDaily.sampleCount + positivity) / newCount;
+      const newMoodAvg =
+        (trendDaily.moodAvg * trendDaily.sampleCount + positivity) / newCount;
+      // Running average for painAvg
+      const newPainAvg =
+        args.painScore != null
+          ? trendDaily.painAvg != null
+            ? (trendDaily.painAvg * trendDaily.sampleCount + args.painScore) /
+              newCount
+            : args.painScore
+          : trendDaily.painAvg;
       await ctx.db.patch(trendDaily._id, {
-        moodAvg: newAvg,
+        moodAvg: newMoodAvg,
         moodMin: Math.min(trendDaily.moodMin, positivity),
         moodMax: Math.max(trendDaily.moodMax, positivity),
-        painAvg: args.painScore,
+        painAvg: newPainAvg,
         sampleCount: newCount,
         updatedAt: now,
       });
     } else {
       await ctx.db.insert("member_trend_daily", {
         circleId: args.circleId,
-        userId: args.userId,
+        userId: user._id,
         dayKey,
         moodAvg: positivity,
         moodMin: positivity,
@@ -137,9 +165,15 @@ export const listRecent = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // Auth guard — caller must be a circle member
+    const user = await requireUser(ctx);
+    await requireCircleMember(ctx, args.circleId, user._id);
+
     return await ctx.db
       .query("checkins")
-      .withIndex("by_circleId_createdAt", (q) => q.eq("circleId", args.circleId))
+      .withIndex("by_circleId_createdAt", (q) =>
+        q.eq("circleId", args.circleId)
+      )
       .order("desc")
       .take(args.limit ?? 20);
   },

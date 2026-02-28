@@ -3,7 +3,10 @@ import { View, Text, StyleSheet, Animated, ScrollView, Pressable, Modal } from '
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { useMood, MoodProvider } from '@/constants/MoodContext';
+import { useCircle } from '@/constants/CircleContext';
 import {
   computePositivity,
   computeCheckinScore,
@@ -92,137 +95,58 @@ function contactPositivity(pills: MoodPillData[]): number {
   return 0;
 }
 
-const CONTACTS: ContactData[] = [
-  {
-    name: 'Blakely',
-    contact: 'hwerst@gmail...',
-    avatarUri:
-      'https://images.unsplash.com/photo-1678053191873-7f6755146300?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '2:34 PM',
-    checkinLocation: 'Central Park',
-    selfieUri:
-      'https://images.unsplash.com/photo-1517841905240-472988babdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'smile', label: 'Fine' },
-      { emojiName: 'care', label: 'Perfect', highlighted: true },
-      { emojiName: 'yawning', label: 'Tiring' },
-    ],
-  },
-  {
-    name: 'Cynthia',
-    contact: 'cytnne@scbglobal.com',
-    avatarUri:
-      'https://images.unsplash.com/photo-1614127710105-e327c0046b5f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    timerSeconds: 24 * 60 + 38,
-    moodPills: [
-      { emojiName: 'expressionless', label: 'Meh' },
-      { emojiName: 'smile', label: 'Good', highlighted: true },
-      { emojiName: 'angry', label: 'Bad' },
-    ],
-  },
-  {
-    name: 'Maria',
-    contact: 'matter@scbglob...',
-    avatarUri:
-      'https://images.unsplash.com/photo-1704467391317-87e4182f3435?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Feb 27',
-    checkinTime: 'Yesterday',
-    checkinLocation: 'Home',
-    moodPills: [
-      { emojiName: 'angry', label: 'Angry', highlighted: true },
-      { emojiName: 'expressionless', label: 'Fine' },
-      { emojiName: 'care', label: 'Great' },
-    ],
-  },
-  {
-    name: 'Finn',
-    contact: 'finn@outlook.com',
-    avatarUri:
-      'https://images.unsplash.com/photo-1720166067122-b5036f549ff9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '11:20 AM',
-    checkinLocation: 'Coffee Shop',
-    selfieUri:
-      'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'smile', label: 'Good' },
-      { emojiName: 'grinning', label: 'Great', highlighted: true },
-      { emojiName: 'care', label: 'Perfect' },
-    ],
-  },
-  {
-    name: 'Jade',
-    contact: 'jade.w@proton.me',
-    avatarUri:
-      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '9:15 AM',
-    checkinLocation: 'Gym',
-    selfieUri:
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'grinning', label: 'Amazing', highlighted: true },
-      { emojiName: 'smile', label: 'Good' },
-      { emojiName: 'care', label: 'Loved' },
-    ],
-  },
-  {
-    name: 'Marcus',
-    contact: 'marc@company.io',
-    avatarUri:
-      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '4:50 PM',
-    checkinLocation: 'Office',
-    moodPills: [
-      { emojiName: 'expressionless', label: 'Flat', highlighted: true },
-      { emojiName: 'yawning', label: 'Tired' },
-      { emojiName: 'smile', label: 'OK' },
-    ],
-  },
-  {
-    name: 'Priya',
-    contact: 'priya@gmail.com',
-    avatarUri:
-      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '1:00 PM',
-    checkinLocation: 'Beach',
-    selfieUri:
-      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'care', label: 'Loved', highlighted: true },
-      { emojiName: 'grinning', label: 'Joyful' },
-      { emojiName: 'smile', label: 'Content' },
-    ],
-  },
-  {
-    name: 'Luca',
-    contact: 'luca.r@outlook.com',
-    avatarUri:
-      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Feb 26',
-    checkinTime: '6:30 PM',
-    checkinLocation: 'Studio',
-    moodPills: [
-      { emojiName: 'angry', label: 'Upset' },
-      { emojiName: 'woozy', label: 'Drained', highlighted: true },
-      { emojiName: 'expressionless', label: 'Numb' },
-    ],
-  },
-];
-
-const BASE_TOPS = CONTACTS.map((_, i) => i * CARD_SPACING);
-const BASE_TILTS = CONTACTS.map((_, i) =>
-  (-2 * (CONTACTS.length - 1 - i)) / (CONTACTS.length - 1)
-);
-const LAST_CARD_TOP = BASE_TOPS[BASE_TOPS.length - 1];
-const BASE_CONTENT_HEIGHT =
-  LAST_CARD_TOP + expandedCard.collapsedHeight + 40;
-
-const PROFILE_AVATAR =
+const PLACEHOLDER_AVATAR =
   'https://images.unsplash.com/photo-1704467391317-87e4182f3435?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200';
+
+/** Map backend contact DTO to frontend ContactData. */
+function toContactData(c: any): ContactData {
+  const hasCheckin = c.status === 'checked_in' || c.lastCheckinAt;
+  return {
+    name: c.name,
+    contact: c.email ?? 'No email',
+    avatarUri: c.avatarUrl ?? PLACEHOLDER_AVATAR,
+    timerSeconds: c.secondsUntilDue,
+    checkinDate: c.lastCheckinAt ? formatRelativeDate(c.lastCheckinAt) : undefined,
+    checkinTime: c.lastCheckinAt ? formatTime(c.lastCheckinAt) : undefined,
+    moodPills: hasCheckin
+      ? (c.latestPhaseSelections ?? []).slice(0, 3).map((s: any, i: number) => ({
+          emojiName: s.emojiId as EmojiName,
+          label: s.emojiLabel,
+          highlighted: i === 0,
+        }))
+      : [],
+  };
+}
+
+function formatRelativeDate(ts: number): string {
+  const now = Date.now();
+  const diff = now - ts;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+/** Compute layout constants for N contacts. */
+function computeLayout(count: number) {
+  const baseTops = Array.from({ length: count }, (_, i) => i * CARD_SPACING);
+  const baseTilts = Array.from({ length: count }, (_, i) =>
+    count > 1 ? (-2 * (count - 1 - i)) / (count - 1) : 0
+  );
+  const lastTop = baseTops[baseTops.length - 1] ?? 0;
+  const baseContentHeight = lastTop + expandedCard.collapsedHeight + 40;
+  return { baseTops, baseTilts, baseContentHeight };
+}
+
+const PROFILE_AVATAR = PLACEHOLDER_AVATAR;
 
 const SPRING_CONFIG = { tension: 50, friction: 12, useNativeDriver: false };
 
@@ -250,12 +174,28 @@ const USER_MOOD_BADGE: Record<string, { label: string; emoji: EmojiName }> = {
 export default function HomeScreen() {
   const router = useRouter();
   const { themed, mood, setPositivity } = useMood();
+  const { activeCircleId } = useCircle();
   const gradStart = themed(themeColors.surfacePrimary);
   const gradEnd = themed(themeColors.surfaceSecondary);
   const primaryText = themed(themeColors.moodTextPrimary);
   const secondaryText = themed(themeColors.moodTextSecondary);
   const accentColor = themed(themeColors.accent);
   const userBadge = USER_MOOD_BADGE[mood] ?? USER_MOOD_BADGE.neutral;
+
+  // ── Backend data ──
+  const backendContacts = useQuery(
+    api.contacts.listForCircle,
+    activeCircleId ? { circleId: activeCircleId } : 'skip'
+  );
+  const submitCheckin = useMutation(api.checkins.submit);
+  const CONTACTS = useMemo(
+    () => (backendContacts ?? []).map(toContactData),
+    [backendContacts]
+  );
+
+  // ── Layout constants (dynamic based on contact count) ──
+  const { baseTops: BASE_TOPS, baseTilts: BASE_TILTS, baseContentHeight: BASE_CONTENT_HEIGHT } =
+    useMemo(() => computeLayout(CONTACTS.length), [CONTACTS.length]);
 
   const [checkedIn, setCheckedIn] = useState(false);
   const [dialOpen, setDialOpen] = useState(false);
@@ -283,7 +223,7 @@ export default function HomeScreen() {
       expandedIndex !== null
         ? BASE_CONTENT_HEIGHT + expandedCard.expandDelta
         : BASE_CONTENT_HEIGHT,
-    [expandedIndex]
+    [expandedIndex, BASE_CONTENT_HEIGHT]
   );
 
   const scrollY = useRef(0);
@@ -294,12 +234,11 @@ export default function HomeScreen() {
     const cardBottom = cardY + expandedCard.expandedHeight;
     const visibleBottom = scrollY.current + viewportH.current;
 
-    // Only scroll if the expanded card's bottom would be clipped
     if (cardBottom > visibleBottom - 40) {
       const target = cardBottom - viewportH.current + 120;
       scrollRef.current?.scrollTo({ y: Math.max(0, target), animated: true });
     }
-  }, []);
+  }, [BASE_TOPS]);
 
   const animateTops = useCallback(
     (activeIndex: number | null) => {
@@ -315,7 +254,7 @@ export default function HomeScreen() {
       });
       Animated.parallel(anims).start();
     },
-    [cardTopAnims]
+    [cardTopAnims, CONTACTS, BASE_TOPS]
   );
 
   const handleCardPress = useCallback(
@@ -384,7 +323,7 @@ export default function HomeScreen() {
         });
       }
     },
-    [expandedIndex, cardExpandAnims, cardTiltAnims, animateTops, scrollCardIntoView]
+    [expandedIndex, cardExpandAnims, cardTiltAnims, animateTops, scrollCardIntoView, BASE_TILTS]
   );
 
   return (
@@ -599,12 +538,17 @@ export default function HomeScreen() {
                   useNativeDriver: true,
                 }).start();
               }}
-              onComplete={(selections) => {
+              onComplete={async (selections) => {
                 // Convert selections to phase scores and compute weighted result
-                const phaseSelections = Object.values(selections).map((s) => ({
+                const phaseEntries = Object.entries(selections).map(([phaseTitle, s]) => ({
+                  phaseTitle,
+                  emojiId: s.name,
+                  emojiLabel: s.label,
                   emojiIndex: s.emojiIndex,
                 }));
-                const { score } = computeCheckinScore(phaseSelections);
+                const { score } = computeCheckinScore(
+                  phaseEntries.map((s) => ({ emojiIndex: s.emojiIndex }))
+                );
                 const positivity = checkinScoreToPositivity(score);
                 setPositivity(positivity);
                 setCheckedIn(true);
@@ -615,6 +559,19 @@ export default function HomeScreen() {
                 setSelfieToggle(false);
                 titleFade.setValue(1);
                 selfieCardFade.setValue(0);
+                // Submit to backend
+                if (activeCircleId) {
+                  try {
+                    await submitCheckin({
+                      circleId: activeCircleId,
+                      phaseSelections: phaseEntries,
+                      source: 'dial',
+                      idempotencyKey: `${Date.now()}`,
+                    });
+                  } catch (e) {
+                    console.error('Failed to submit check-in:', e);
+                  }
+                }
               }}
             />
           </View>

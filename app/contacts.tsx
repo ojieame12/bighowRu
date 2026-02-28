@@ -2,7 +2,10 @@ import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Animated, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery } from 'convex/react';
+import { api } from '@/convex/_generated/api';
 import { useMood, MoodProvider } from '@/constants/MoodContext';
+import { useCircle } from '@/constants/CircleContext';
 import { computePositivity } from '@/constants/mood-engine';
 import { themeColors, typography, expandedCard } from '@/constants/tokens';
 import { AvatarRing } from '@/components/AvatarRing';
@@ -83,152 +86,46 @@ function trendVerdict(trend: TrendPoint[]): { label: string; tone: 'positive' | 
   return { label: 'Hanging in there', tone: 'neutral' };
 }
 
-const CONTACTS: ContactData[] = [
-  {
-    name: 'Blakely',
-    contact: 'hwerst@gmail...',
-    avatarUri: 'https://images.unsplash.com/photo-1678053191873-7f6755146300?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '2:34 PM',
-    checkinLocation: 'Central Park',
-    selfieUri: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'smile', label: 'Fine' },
-      { emojiName: 'care', label: 'Perfect', highlighted: true },
-      { emojiName: 'yawning', label: 'Tiring' },
-    ],
-    trend: [
-      { label: 'Mon', value: 2.1 },
-      { label: 'Tue', value: 1.8 },
-      { label: 'Wed', value: 2.4 },
-      { label: 'Thu', value: 2.6 },
-      { label: 'Fri', value: 2.2 },
-      { label: 'Sat', value: 2.8 },
-      { label: 'Sun', value: 2.5 },
-    ],
-  },
-  {
-    name: 'Maria',
-    contact: 'matter@scbglob...',
-    avatarUri: 'https://images.unsplash.com/photo-1704467391317-87e4182f3435?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Feb 27',
-    checkinTime: 'Yesterday',
-    checkinLocation: 'Home',
-    moodPills: [
-      { emojiName: 'angry', label: 'Angry', highlighted: true },
-      { emojiName: 'expressionless', label: 'Fine' },
-      { emojiName: 'care', label: 'Great' },
-    ],
-    trend: [
-      { label: 'Mon', value: 1.2 },
-      { label: 'Tue', value: 0.8 },
-      { label: 'Wed', value: 0.6 },
-      { label: 'Thu', value: 0.9 },
-      { label: 'Fri', value: 0.5 },
-      { label: 'Sat', value: 0.7 },
-      { label: 'Sun', value: 0.4 },
-    ],
-  },
-  {
-    name: 'Finn',
-    contact: 'finn@outlook.com',
-    avatarUri: 'https://images.unsplash.com/photo-1720166067122-b5036f549ff9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '11:20 AM',
-    checkinLocation: 'Coffee Shop',
-    selfieUri: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'smile', label: 'Good' },
-      { emojiName: 'grinning', label: 'Great', highlighted: true },
-      { emojiName: 'care', label: 'Perfect' },
-    ],
-    trend: [
-      { label: 'Mon', value: 2.5 },
-      { label: 'Tue', value: 2.7 },
-      { label: 'Wed', value: 2.9 },
-      { label: 'Thu', value: 2.6 },
-      { label: 'Fri', value: 2.8 },
-      { label: 'Sat', value: 3.0 },
-      { label: 'Sun', value: 2.9 },
-    ],
-  },
-  {
-    name: 'Jade',
-    contact: 'jade.w@proton.me',
-    avatarUri: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '9:15 AM',
-    checkinLocation: 'Gym',
-    selfieUri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=400',
-    moodPills: [
-      { emojiName: 'grinning', label: 'Amazing', highlighted: true },
-      { emojiName: 'smile', label: 'Good' },
-      { emojiName: 'care', label: 'Loved' },
-    ],
-    trend: [
-      { label: 'Mon', value: 2.8 },
-      { label: 'Tue', value: 2.9 },
-      { label: 'Wed', value: 2.7 },
-      { label: 'Thu', value: 3.0 },
-      { label: 'Fri', value: 2.9 },
-      { label: 'Sat', value: 2.8 },
-      { label: 'Sun', value: 3.0 },
-    ],
-  },
-  {
-    name: 'Marcus',
-    contact: 'marc@company.io',
-    avatarUri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Today',
-    checkinTime: '4:50 PM',
-    checkinLocation: 'Office',
-    moodPills: [
-      { emojiName: 'expressionless', label: 'Flat', highlighted: true },
-      { emojiName: 'yawning', label: 'Tired' },
-      { emojiName: 'smile', label: 'OK' },
-    ],
-    trend: [
-      { label: 'Mon', value: 1.5 },
-      { label: 'Tue', value: 1.3 },
-      { label: 'Wed', value: 1.1 },
-      { label: 'Thu', value: 1.4 },
-      { label: 'Fri', value: 1.2 },
-      { label: 'Sat', value: 1.6 },
-      { label: 'Sun', value: 1.3 },
-    ],
-  },
-  {
-    name: 'Luca',
-    contact: 'luca.r@outlook.com',
-    avatarUri: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200',
-    checkinDate: 'Feb 26',
-    checkinTime: '6:30 PM',
-    checkinLocation: 'Studio',
-    moodPills: [
-      { emojiName: 'angry', label: 'Upset' },
-      { emojiName: 'woozy', label: 'Drained', highlighted: true },
-      { emojiName: 'expressionless', label: 'Numb' },
-    ],
-    trend: [
-      { label: 'Mon', value: 0.9 },
-      { label: 'Tue', value: 0.7 },
-      { label: 'Wed', value: 0.5 },
-      { label: 'Thu', value: 0.8 },
-      { label: 'Fri', value: 0.6 },
-      { label: 'Sat', value: 0.4 },
-      { label: 'Sun', value: 0.3 },
-    ],
-  },
-];
+const PLACEHOLDER_AVATAR =
+  'https://images.unsplash.com/photo-1704467391317-87e4182f3435?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=200';
+
+function toContactData(c: any): ContactData {
+  const hasCheckin = c.status === 'checked_in' || c.lastCheckinAt;
+  return {
+    name: c.name,
+    contact: c.email ?? 'No email',
+    avatarUri: c.avatarUrl ?? PLACEHOLDER_AVATAR,
+    moodPills: hasCheckin
+      ? (c.latestPhaseSelections ?? []).slice(0, 3).map((s: any, i: number) => ({
+          emojiName: s.emojiId as EmojiName,
+          label: s.emojiLabel,
+          highlighted: i === 0,
+        }))
+      : [],
+    trend: [], // Phase 4
+  };
+}
+
+function formatRelativeDate(ts: number): string {
+  const diff = Date.now() - ts;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 const CARD_SPACING = 175;
 const CONTACTS_EXPAND_DELTA = 520;
-const BASE_TOPS = CONTACTS.map((_, i) => i * CARD_SPACING);
-const BASE_TILTS = CONTACTS.map((_, i) =>
-  (-2 * (CONTACTS.length - 1 - i)) / (CONTACTS.length - 1)
-);
-const LAST_CARD_TOP = BASE_TOPS[BASE_TOPS.length - 1];
-const BASE_CONTENT_HEIGHT = LAST_CARD_TOP + expandedCard.collapsedHeight + 40;
+
+function computeLayout(count: number) {
+  const baseTops = Array.from({ length: count }, (_, i) => i * CARD_SPACING);
+  const baseTilts = Array.from({ length: count }, (_, i) =>
+    count > 1 ? (-2 * (count - 1 - i)) / (count - 1) : 0
+  );
+  const lastTop = baseTops[baseTops.length - 1] ?? 0;
+  const baseContentHeight = lastTop + expandedCard.collapsedHeight + 40;
+  return { baseTops, baseTilts, baseContentHeight };
+}
 
 const SPRING_CONFIG = { tension: 50, friction: 12, useNativeDriver: false };
 
@@ -408,10 +305,24 @@ function TrendContactCard({
 
 export default function ContactsScreen() {
   const { themed } = useMood();
+  const { activeCircleId } = useCircle();
   const gradStart = themed(themeColors.surfacePrimary);
   const gradEnd = themed(themeColors.surfaceSecondary);
   const primaryText = themed(themeColors.moodTextPrimary);
   const router = useRouter();
+
+  // ── Backend data ──
+  const backendContacts = useQuery(
+    api.contacts.listForCircle,
+    activeCircleId ? { circleId: activeCircleId } : 'skip'
+  );
+  const CONTACTS = useMemo(
+    () => (backendContacts ?? []).map(toContactData),
+    [backendContacts]
+  );
+
+  const { baseTops: BASE_TOPS, baseTilts: BASE_TILTS, baseContentHeight: BASE_CONTENT_HEIGHT } =
+    useMemo(() => computeLayout(CONTACTS.length), [CONTACTS.length]);
 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const cardTopAnims = useRef(
@@ -429,7 +340,7 @@ export default function ContactsScreen() {
       expandedIndex !== null
         ? BASE_CONTENT_HEIGHT + CONTACTS_EXPAND_DELTA
         : BASE_CONTENT_HEIGHT,
-    [expandedIndex]
+    [expandedIndex, BASE_CONTENT_HEIGHT]
   );
 
   const animateTops = useCallback(
@@ -446,7 +357,7 @@ export default function ContactsScreen() {
       });
       Animated.parallel(anims).start();
     },
-    [cardTopAnims]
+    [cardTopAnims, CONTACTS, BASE_TOPS]
   );
 
   const handleCardPress = useCallback(
@@ -485,7 +396,7 @@ export default function ContactsScreen() {
         });
       }
     },
-    [expandedIndex, cardExpandAnims, cardTiltAnims, animateTops]
+    [expandedIndex, cardExpandAnims, cardTiltAnims, animateTops, BASE_TILTS]
   );
 
   return (
