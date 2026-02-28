@@ -7,7 +7,7 @@ import { EmojiAsset, type EmojiName } from '@/components/EmojiAsset';
 type MoodSelection = { name: EmojiName; label: string };
 type Selections = Record<string, MoodSelection>;
 
-const PHASE_LABELS = ['Feeling', 'Health', 'Energy', 'Social', 'Stress'];
+const PHASE_LABELS = ['Feeling', 'Health', 'Energy', 'Social'];
 
 export default function MoodDialPreview() {
   const router = useRouter();
